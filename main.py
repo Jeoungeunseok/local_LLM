@@ -1,15 +1,21 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from qdrant_client.http import models as qdrant_models
 
+from logger import setup_logging
 from config import OLLAMA_MODEL, OLLAMA_BASE_URL, QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION
 from database import engine
 import models
 from services.vector_store import qdrant, embedder
 from routers import chat, documents, rag
+
+# 로깅 시스템 초기화 (가장 먼저 실행)
+setup_logging()
+logger = logging.getLogger("app")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

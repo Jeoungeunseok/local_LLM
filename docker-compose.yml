@@ -15,8 +15,10 @@ services:
       QDRANT_PORT: ${QDRANT_PORT:-6333}
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/local_llm}
+      LOG_DIR: /app/logs
     volumes:
       - ./storage:/app/storage
+      - ./logs:/app/logs
     depends_on:
       - ollama
       - qdrant

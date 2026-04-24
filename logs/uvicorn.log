@@ -1,0 +1,9 @@
+2026-04-24 08:33:10 [INFO] app: 로깅 시스템 시작 | 저장 경로: /app/logs/uvicorn.log | 보관 기간: 7일
+2026-04-24 08:33:10 [INFO] uvicorn.error: Started server process [1]
+2026-04-24 08:33:10 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 08:33:10 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 08:33:10 [INFO] uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-04-24 08:33:13 [INFO] uvicorn.access: 172.18.0.1:47500 - "GET /docs HTTP/1.1" 200
+2026-04-24 08:33:13 [INFO] uvicorn.access: 172.18.0.1:47500 - "GET /openapi.json HTTP/1.1" 200
+2026-04-24 08:33:19 [INFO] uvicorn.access: 172.18.0.1:47490 - "GET /health HTTP/1.1" 200
+2026-04-24 08:33:23 [INFO] uvicorn.access: 172.18.0.1:47490 - "GET /health HTTP/1.1" 200
