@@ -39,6 +39,19 @@ class ChatResponse(BaseModel):
     answer: str
     model: str
 
+class RagRequest(BaseModel):
+    question: str = Field(min_length=1)
+
+class RagSource(BaseModel):
+    filename: str
+    text: str
+    score: float
+
+class RagResponse(BaseModel):
+    answer: str
+    model: str
+    sources: List[RagSource]
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create Qdrant collection if not exists
@@ -214,4 +227,90 @@ async def chat(request: ChatRequest) -> ChatResponse:
     return ChatResponse(
         answer=answer,
         model=OLLAMA_MODEL,
+    )
+
+@app.post("/rag/ask", response_model=RagResponse)
+async def rag_ask(request: RagRequest) -> RagResponse:
+    try:
+        question_emb = embedder.encode(request.question)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"질문 임베딩 오류: {str(e)}")
+
+    try:
+        search_result = qdrant.search(
+            collection_name=QDRANT_COLLECTION,
+            query_vector=question_emb.tolist(),
+            limit=3
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Qdrant 검색 오류: {str(e)}")
+
+    sources = []
+    contexts = []
+    for hit in search_result:
+        payload = hit.payload or {}
+        text = payload.get("text", "")
+        filename = payload.get("filename", "unknown")
+        
+        sources.append(RagSource(
+            filename=filename,
+            text=text,
+            score=hit.score
+        ))
+        contexts.append(f"[{filename}] {text}")
+
+    context_str = "\n\n".join(contexts)
+
+    prompt = (
+        "주어진 문서(Context)를 바탕으로 사용자의 질문에 답하세요. "
+        "문서에 내용이 없다면 '제공된 문서에서 답변을 찾을 수 없습니다'라고 답하세요.\n\n"
+        f"[Context]\n{context_str}\n\n"
+        f"[질문]\n{request.question}"
+    )
+
+    messages = [
+        {"role": "user", "content": prompt}
+    ]
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": messages,
+        "stream": False,
+        "options": {
+            "temperature": 0.1,
+            "num_ctx": 4096,
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Ollama API 오류: {exc.response.text}",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.",
+        ) from exc
+
+    answer = data.get("message", {}).get("content", "")
+    if not answer:
+        raise HTTPException(
+            status_code=500,
+            detail="Ollama 응답에서 답변을 찾을 수 없습니다.",
+        )
+
+    return RagResponse(
+        answer=answer,
+        model=OLLAMA_MODEL,
+        sources=sources
     )
