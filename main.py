@@ -1,5 +1,8 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from qdrant_client.http import models as qdrant_models
 
 from config import OLLAMA_MODEL, OLLAMA_BASE_URL, QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION
@@ -38,6 +41,14 @@ app = FastAPI(
 app.include_router(chat.router, tags=["Chat"])
 app.include_router(documents.router, tags=["Documents"])
 app.include_router(rag.router, tags=["RAG"])
+
+# Mount Frontend
+os.makedirs("frontend", exist_ok=True)
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("frontend/index.html")
 
 @app.get("/health")
 async def health() -> dict:

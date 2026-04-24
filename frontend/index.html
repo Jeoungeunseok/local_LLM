@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Local AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Local AI Assistant</span>
+            </div>
+            
+            <div class="upload-section">
+                <h3>문서 저장소 (RAG)</h3>
+                <div class="upload-area" id="drop-zone">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <p>PDF/DOCX 드래그 & 드롭<br>또는 <span>클릭하여 업로드</span></p>
+                    <input type="file" id="file-input" accept=".pdf,.docx" style="display: none;">
+                </div>
+                <div id="upload-status" class="status-msg"></div>
+            </div>
+            
+            <div class="mode-toggle">
+                <h3>대화 모드</h3>
+                <div class="toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" id="rag-mode-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span id="mode-label">일반 대화</span>
+                </div>
+                <p class="mode-desc" id="mode-desc">LLM 모델의 기본 지식으로 답변합니다.</p>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <header class="chat-header">
+                <h2 id="chat-title">일반 대화 모드</h2>
+            </header>
+            
+            <div class="chat-box" id="chat-box">
+                <!-- Welcome Message -->
+                <div class="message assistant">
+                    <div class="avatar">AI</div>
+                    <div class="bubble">
+                        <div class="text">안녕하세요! 무엇을 도와드릴까요?<br>좌측 메뉴에서 문서를 업로드하고 <b>문서 기반 검색(RAG)</b> 기능을 사용할 수도 있습니다.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <form id="chat-form">
+                    <textarea id="message-input" placeholder="메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)" rows="1"></textarea>
+                    <button type="submit" id="send-btn" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
