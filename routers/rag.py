@@ -1,3 +1,4 @@
+import logging
 import httpx
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from schemas import RagRequest, RagResponse, RagSource
 from config import QDRANT_COLLECTION, OLLAMA_MODEL, OLLAMA_BASE_URL
 from services.vector_store import embedder, qdrant
 
+logger = logging.getLogger("app")
 router = APIRouter()
 
 @router.post("/rag/ask", response_model=RagResponse)
@@ -15,6 +17,7 @@ async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> Ra
     try:
         question_emb = embedder.encode(request.question)
     except Exception as e:
+        logger.error(f"[/rag/ask] 임베딩 오류: {e}")
         raise HTTPException(status_code=500, detail=f"질문 임베딩 오류: {str(e)}")
 
     try:
@@ -24,6 +27,7 @@ async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> Ra
             limit=3
         )
     except Exception as e:
+        logger.error(f"[/rag/ask] Qdrant 검색 오류: {e}")
         raise HTTPException(status_code=500, detail=f"Qdrant 검색 오류: {str(e)}")
 
     sources = []
@@ -73,11 +77,13 @@ async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> Ra
             data = response.json()
 
     except httpx.HTTPStatusError as exc:
+        logger.error(f"[/rag/ask] Ollama HTTP 오류 | status={exc.response.status_code} | body={exc.response.text}")
         raise HTTPException(
             status_code=502,
             detail=f"Ollama API 오류: {exc.response.text}",
         ) from exc
     except httpx.RequestError as exc:
+        logger.error(f"[/rag/ask] Ollama 연결 실패 | {exc}")
         raise HTTPException(
             status_code=503,
             detail="Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.",

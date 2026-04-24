@@ -1,8 +1,10 @@
+import logging
 import httpx
 from fastapi import APIRouter, HTTPException
 from schemas import ChatRequest, ChatResponse
 from config import OLLAMA_BASE_URL, OLLAMA_MODEL
 
+logger = logging.getLogger("app")
 router = APIRouter()
 
 @router.post("/chat", response_model=ChatResponse)
@@ -52,12 +54,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
             data = response.json()
 
     except httpx.HTTPStatusError as exc:
+        logger.error(f"[/chat] Ollama HTTP 오류 | status={exc.response.status_code} | body={exc.response.text}")
         raise HTTPException(
             status_code=502,
             detail=f"Ollama API 오류: {exc.response.text}",
         ) from exc
 
     except httpx.RequestError as exc:
+        logger.error(f"[/chat] Ollama 연결 실패 | {exc}")
         raise HTTPException(
             status_code=503,
             detail="Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.",
