@@ -7,8 +7,11 @@ from typing import List, Literal
 import docx
 import fitz
 import httpx
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import engine, get_db
+import models
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 from sentence_transformers import SentenceTransformer
@@ -54,6 +57,10 @@ class RagResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize DB tables
+    async with engine.begin() as conn:
+        await conn.run_sync(models.Base.metadata.create_all)
+
     # Create Qdrant collection if not exists
     collections = qdrant.get_collections().collections
     collection_names = [c.name for c in collections]
@@ -84,7 +91,7 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> Lis
     return chunks
 
 @app.post("/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="파일명이 없습니다.")
     
@@ -140,6 +147,14 @@ async def upload_document(file: UploadFile = File(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant 저장 오류: {str(e)}")
+        
+    # Save to PostgreSQL
+    new_doc = models.DocumentMeta(
+        filename=file.filename,
+        chunk_count=len(chunks)
+    )
+    db.add(new_doc)
+    await db.commit()
         
     return {
         "status": "success",
@@ -230,7 +245,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     )
 
 @app.post("/rag/ask", response_model=RagResponse)
-async def rag_ask(request: RagRequest) -> RagResponse:
+async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> RagResponse:
     try:
         question_emb = embedder.encode(request.question)
     except Exception as e:
@@ -308,6 +323,15 @@ async def rag_ask(request: RagRequest) -> RagResponse:
             status_code=500,
             detail="Ollama 응답에서 답변을 찾을 수 없습니다.",
         )
+
+    # Save to PostgreSQL
+    chat_log = models.ChatHistory(
+        question=request.question,
+        answer=answer,
+        model_used=OLLAMA_MODEL
+    )
+    db.add(chat_log)
+    await db.commit()
 
     return RagResponse(
         answer=answer,

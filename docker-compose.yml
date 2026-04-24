@@ -14,11 +14,26 @@ services:
       QDRANT_HOST: ${QDRANT_HOST:-qdrant}
       QDRANT_PORT: ${QDRANT_PORT:-6333}
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/local_llm}
     volumes:
       - ./storage:/app/storage
     depends_on:
       - ollama
       - qdrant
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: local-llm-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: local_llm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   ollama:
@@ -43,3 +58,4 @@ services:
 volumes:
   ollama_data:
   qdrant_data:
+  postgres_data:
