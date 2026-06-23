@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import uuid
@@ -10,7 +11,7 @@ from qdrant_client.http import models as qdrant_models
 
 import models
 from database import get_db
-from config import QDRANT_COLLECTION
+from config import QDRANT_COLLECTION, MAX_UPLOAD_SIZE
 from utils import chunk_text
 from services.vector_store import embedder, qdrant
 
@@ -24,7 +25,13 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     
     ext = file.filename.split(".")[-1].lower()
     content = await file.read()
-    
+
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"파일이 너무 큽니다. 최대 {MAX_UPLOAD_SIZE // (1024 * 1024)}MB까지 업로드할 수 있습니다.",
+        )
+
     text = ""
     if ext == "pdf":
         try:
@@ -50,7 +57,8 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     chunks = chunk_text(text)
     
     try:
-        embeddings = embedder.encode(chunks)
+        # CPU 무거운 임베딩 연산을 별도 스레드에서 실행해 이벤트 루프 차단 방지
+        embeddings = await asyncio.to_thread(embedder.encode, chunks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"임베딩 생성 오류: {str(e)}")
         
@@ -68,9 +76,11 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
         ))
         
     try:
-        qdrant.upsert(
+        # Qdrant 동기 클라이언트 호출도 스레드로 오프로드
+        await asyncio.to_thread(
+            qdrant.upsert,
             collection_name=QDRANT_COLLECTION,
-            points=points
+            points=points,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant 저장 오류: {str(e)}")
@@ -121,7 +131,8 @@ async def delete_document(filename: str, db: AsyncSession = Depends(get_db)):
 
     # 2. Qdrant에서 filename payload 기준으로 벡터 데이터 삭제
     try:
-        qdrant.delete(
+        await asyncio.to_thread(
+            qdrant.delete,
             collection_name=QDRANT_COLLECTION,
             points_selector=qdrant_models.FilterSelector(
                 filter=qdrant_models.Filter(
@@ -132,7 +143,7 @@ async def delete_document(filename: str, db: AsyncSession = Depends(get_db)):
                         )
                     ]
                 )
-            )
+            ),
         )
         logger.info(f"[/documents/delete] Qdrant 삭제 완료: {filename}")
     except Exception as e:

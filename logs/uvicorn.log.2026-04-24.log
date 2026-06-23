@@ -1,0 +1,53 @@
+2026-04-24 08:33:10 [INFO] app: 로깅 시스템 시작 | 저장 경로: /app/logs/uvicorn.log | 보관 기간: 7일
+2026-04-24 08:33:10 [INFO] uvicorn.error: Started server process [1]
+2026-04-24 08:33:10 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 08:33:10 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 08:33:10 [INFO] uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-04-24 08:33:13 [INFO] uvicorn.access: 172.18.0.1:47500 - "GET /docs HTTP/1.1" 200
+2026-04-24 08:33:13 [INFO] uvicorn.access: 172.18.0.1:47500 - "GET /openapi.json HTTP/1.1" 200
+2026-04-24 08:33:19 [INFO] uvicorn.access: 172.18.0.1:47490 - "GET /health HTTP/1.1" 200
+2026-04-24 08:33:23 [INFO] uvicorn.access: 172.18.0.1:47490 - "GET /health HTTP/1.1" 200
+2026-04-24 08:33:57 [INFO] uvicorn.access: 172.18.0.1:60260 - "GET / HTTP/1.1" 200
+2026-04-24 08:33:57 [INFO] uvicorn.access: 172.18.0.1:60260 - "GET /static/style.css HTTP/1.1" 304
+2026-04-24 08:33:57 [INFO] uvicorn.access: 172.18.0.1:60274 - "GET /static/script.js HTTP/1.1" 304
+2026-04-24 08:34:05 [INFO] uvicorn.access: 172.18.0.1:34806 - "POST /chat HTTP/1.1" 502
+2026-04-24 08:36:19 [INFO] uvicorn.error: Shutting down
+2026-04-24 08:36:19 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 08:36:19 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 08:36:19 [INFO] uvicorn.error: Finished server process [1]
+2026-04-24 08:36:42 [INFO] app: 로깅 시스템 시작 | 저장 경로: /app/logs/uvicorn.log | 보관 기간: 7일
+2026-04-24 08:36:42 [INFO] uvicorn.error: Started server process [1]
+2026-04-24 08:36:42 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 08:36:42 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 08:36:42 [INFO] uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-04-24 08:36:43 [INFO] uvicorn.access: 172.18.0.1:33646 - "GET /docs HTTP/1.1" 200
+2026-04-24 08:36:43 [INFO] uvicorn.access: 172.18.0.1:33646 - "GET /openapi.json HTTP/1.1" 200
+2026-04-24 08:36:45 [INFO] uvicorn.access: 172.18.0.1:33646 - "GET / HTTP/1.1" 200
+2026-04-24 08:36:45 [INFO] uvicorn.access: 172.18.0.1:33646 - "GET /static/style.css HTTP/1.1" 304
+2026-04-24 08:36:45 [INFO] uvicorn.access: 172.18.0.1:33660 - "GET /static/script.js HTTP/1.1" 304
+2026-04-24 08:37:03 [INFO] uvicorn.access: 172.18.0.1:42798 - "POST /chat HTTP/1.1" 200
+2026-04-24 08:38:04 [INFO] uvicorn.access: 172.18.0.1:57452 - "POST /documents/upload HTTP/1.1" 200
+2026-04-24 08:38:55 [INFO] uvicorn.access: 172.18.0.1:36274 - "POST /rag/ask HTTP/1.1" 200
+2026-04-24 08:43:20 [INFO] uvicorn.error: Shutting down
+2026-04-24 08:43:21 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 08:43:21 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 08:43:21 [INFO] uvicorn.error: Finished server process [1]
+2026-04-24 08:43:41 [INFO] app: 로깅 시스템 시작 | 저장 경로: /app/logs/uvicorn.log | 보관 기간: 7일
+2026-04-24 08:43:41 [INFO] uvicorn.error: Started server process [1]
+2026-04-24 08:43:41 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 08:43:41 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 08:43:41 [INFO] uvicorn.error: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-04-24 08:43:45 [INFO] uvicorn.access: 172.18.0.1:38780 - "GET / HTTP/1.1" 200
+2026-04-24 08:43:45 [INFO] uvicorn.access: 172.18.0.1:38780 - "GET /static/style.css HTTP/1.1" 200
+2026-04-24 08:43:45 [INFO] uvicorn.access: 172.18.0.1:38792 - "GET /static/script.js HTTP/1.1" 200
+2026-04-24 08:43:45 [INFO] uvicorn.access: 172.18.0.1:38792 - "GET /documents HTTP/1.1" 200
+2026-04-24 08:44:14 [INFO] app: [/documents/delete] Qdrant 삭제 완료: 앱배포_준비사항.docx
+2026-04-24 08:44:14 [INFO] app: [/documents/delete] PostgreSQL 삭제 완료: 앱배포_준비사항.docx
+2026-04-24 08:44:14 [INFO] uvicorn.access: 172.18.0.1:51986 - "DELETE /documents/%EC%95%B1%EB%B0%B0%ED%8F%AC_%EC%A4%80%EB%B9%84%EC%82%AC%ED%95%AD.docx HTTP/1.1" 200
+2026-04-24 08:44:14 [INFO] uvicorn.access: 172.18.0.1:51986 - "GET /documents HTTP/1.1" 200
+2026-04-24 08:44:33 [INFO] uvicorn.access: 172.18.0.1:39242 - "POST /chat HTTP/1.1" 200
+2026-04-24 08:44:38 [INFO] uvicorn.access: 172.18.0.1:39242 - "POST /documents/upload HTTP/1.1" 200
+2026-04-24 08:44:38 [INFO] uvicorn.access: 172.18.0.1:39242 - "GET /documents HTTP/1.1" 200
+2026-04-24 08:45:37 [INFO] uvicorn.access: 172.18.0.1:57474 - "POST /rag/ask HTTP/1.1" 200
+2026-04-24 08:47:35 [INFO] uvicorn.access: 172.18.0.1:54160 - "POST /rag/ask HTTP/1.1" 200
+2026-04-24 08:49:44 [INFO] uvicorn.access: 172.18.0.1:60934 - "POST /rag/ask HTTP/1.1" 200

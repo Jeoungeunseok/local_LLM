@@ -8,3 +8,11 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = "company_docs"
 
 EMBEDDING_MODEL_NAME = "jhgan/ko-sroberta-multitask"
+
+# RAG 검색 설정
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "3"))
+# 코사인 유사도 임계값: 이 값 미만의 결과는 무관한 것으로 간주
+RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.3"))
+
+# 업로드 파일 최대 크기 (기본 20MB)
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(20 * 1024 * 1024)))

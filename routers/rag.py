@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import httpx
 from fastapi import APIRouter, HTTPException, Depends
@@ -6,8 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import models
 from database import get_db
 from schemas import RagRequest, RagResponse, RagSource
-from config import QDRANT_COLLECTION, OLLAMA_MODEL, OLLAMA_BASE_URL
+from config import (
+    QDRANT_COLLECTION,
+    OLLAMA_MODEL,
+    OLLAMA_BASE_URL,
+    RAG_TOP_K,
+    RAG_SCORE_THRESHOLD,
+)
 from services.vector_store import embedder, qdrant
+
+NO_CONTEXT_MESSAGE = "제공된 문서에서 답변을 찾을 수 없습니다."
 
 logger = logging.getLogger("app")
 router = APIRouter()
@@ -15,16 +24,20 @@ router = APIRouter()
 @router.post("/rag/ask", response_model=RagResponse)
 async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> RagResponse:
     try:
-        question_emb = embedder.encode(request.question)
+        # CPU 무거운 임베딩 연산을 별도 스레드에서 실행해 이벤트 루프 차단 방지
+        question_emb = await asyncio.to_thread(embedder.encode, request.question)
     except Exception as e:
         logger.error(f"[/rag/ask] 임베딩 오류: {e}")
         raise HTTPException(status_code=500, detail=f"질문 임베딩 오류: {str(e)}")
 
     try:
-        search_result = qdrant.search(
+        # score_threshold로 무관한 결과를 걸러 환각 방지
+        search_result = await asyncio.to_thread(
+            qdrant.search,
             collection_name=QDRANT_COLLECTION,
             query_vector=question_emb.tolist(),
-            limit=3
+            limit=RAG_TOP_K,
+            score_threshold=RAG_SCORE_THRESHOLD,
         )
     except Exception as e:
         logger.error(f"[/rag/ask] Qdrant 검색 오류: {e}")
@@ -36,13 +49,22 @@ async def rag_ask(request: RagRequest, db: AsyncSession = Depends(get_db)) -> Ra
         payload = hit.payload or {}
         text = payload.get("text", "")
         filename = payload.get("filename", "unknown")
-        
+
         sources.append(RagSource(
             filename=filename,
             text=text,
             score=hit.score
         ))
         contexts.append(f"[{filename}] {text}")
+
+    # 임계값을 넘는 관련 문서가 없으면 LLM을 호출하지 않고 조기 응답
+    if not sources:
+        logger.info(f"[/rag/ask] 임계값({RAG_SCORE_THRESHOLD}) 이상 관련 문서 없음 | question={request.question}")
+        return RagResponse(
+            answer=NO_CONTEXT_MESSAGE,
+            model=OLLAMA_MODEL,
+            sources=[],
+        )
 
     context_str = "\n\n".join(contexts)
 
