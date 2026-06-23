@@ -22,7 +22,7 @@ router = APIRouter()
 async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="파일명이 없습니다.")
-    
+
     ext = file.filename.split(".")[-1].lower()
     content = await file.read()
 
@@ -53,30 +53,53 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     text = text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="추출된 텍스트가 없습니다.")
-        
+
     chunks = chunk_text(text)
-    
+
     try:
-        # CPU 무거운 임베딩 연산을 별도 스레드에서 실행해 이벤트 루프 차단 방지
         embeddings = await asyncio.to_thread(embedder.encode, chunks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"임베딩 생성 오류: {str(e)}")
-        
+
+    # 동일 파일명이 이미 존재하면 Qdrant·PostgreSQL에서 먼저 삭제 (중복 누적 방지)
+    existing = (await db.execute(
+        select(models.DocumentMeta).where(models.DocumentMeta.filename == file.filename)
+    )).scalars().first()
+
+    if existing:
+        try:
+            await asyncio.to_thread(
+                qdrant.delete,
+                collection_name=QDRANT_COLLECTION,
+                points_selector=qdrant_models.FilterSelector(
+                    filter=qdrant_models.Filter(
+                        must=[
+                            qdrant_models.FieldCondition(
+                                key="filename",
+                                match=qdrant_models.MatchValue(value=file.filename)
+                            )
+                        ]
+                    )
+                ),
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"기존 벡터 데이터 삭제 오류: {str(e)}")
+
+        await db.execute(
+            delete(models.DocumentMeta).where(models.DocumentMeta.filename == file.filename)
+        )
+        await db.flush()
+        logger.info(f"[/documents/upload] 기존 데이터 교체: {file.filename}")
+
     points = []
     for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
-        point_id = str(uuid.uuid4())
         points.append(qdrant_models.PointStruct(
-            id=point_id,
+            id=str(uuid.uuid4()),
             vector=emb.tolist(),
-            payload={
-                "filename": file.filename,
-                "text": chunk,
-                "chunk_index": i
-            }
+            payload={"filename": file.filename, "text": chunk, "chunk_index": i},
         ))
-        
+
     try:
-        # Qdrant 동기 클라이언트 호출도 스레드로 오프로드
         await asyncio.to_thread(
             qdrant.upsert,
             collection_name=QDRANT_COLLECTION,
@@ -84,20 +107,15 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant 저장 오류: {str(e)}")
-        
-    # Save to PostgreSQL
-    new_doc = models.DocumentMeta(
-        filename=file.filename,
-        chunk_count=len(chunks)
-    )
-    db.add(new_doc)
+
+    db.add(models.DocumentMeta(filename=file.filename, chunk_count=len(chunks)))
     await db.commit()
-        
+
     return {
         "status": "success",
         "filename": file.filename,
         "chunks_count": len(chunks),
-        "message": f"성공적으로 {len(chunks)}개의 Chunk가 벡터 DB에 저장되었습니다."
+        "message": f"성공적으로 {len(chunks)}개의 Chunk가 벡터 DB에 저장되었습니다.",
     }
 
 @router.get("/documents")
