@@ -50,7 +50,10 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     ext = file.filename.split(".")[-1].lower()
     chunks_read: list[bytes] = []
     total = 0
-    async for chunk in file:
+    while True:
+        chunk = await file.read(65536)  # 64KB 단위로 읽기
+        if not chunk:
+            break
         total += len(chunk)
         if total > MAX_UPLOAD_SIZE:
             raise HTTPException(
