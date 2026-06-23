@@ -16,3 +16,7 @@ RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.3"))
 
 # 업로드 파일 최대 크기 (기본 20MB)
 MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(20 * 1024 * 1024)))
+
+# 원본 파일 저장 경로
+STORAGE_DIR = os.getenv("STORAGE_DIR", "/app/storage")
+DOCUMENTS_DIR = os.path.join(STORAGE_DIR, "documents")

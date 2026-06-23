@@ -7,6 +7,7 @@ class DocumentMeta(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), index=True)
+    file_path = Column(String(512), nullable=True)
     chunk_count = Column(Integer)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
