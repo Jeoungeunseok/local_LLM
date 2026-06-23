@@ -38,14 +38,27 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
     if not file.filename:
         raise HTTPException(status_code=400, detail="파일명이 없습니다.")
 
-    ext = file.filename.split(".")[-1].lower()
-    content = await file.read()
-
-    if len(content) > MAX_UPLOAD_SIZE:
+    # Content-Length 헤더가 있으면 읽기 전에 미리 거부
+    content_length = file.size
+    if content_length is not None and content_length > MAX_UPLOAD_SIZE:
         raise HTTPException(
             status_code=413,
             detail=f"파일이 너무 큽니다. 최대 {MAX_UPLOAD_SIZE // (1024 * 1024)}MB까지 업로드할 수 있습니다.",
         )
+
+    # 청크 단위로 읽으며 한도 초과 즉시 중단
+    ext = file.filename.split(".")[-1].lower()
+    chunks_read: list[bytes] = []
+    total = 0
+    async for chunk in file:
+        total += len(chunk)
+        if total > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"파일이 너무 큽니다. 최대 {MAX_UPLOAD_SIZE // (1024 * 1024)}MB까지 업로드할 수 있습니다.",
+            )
+        chunks_read.append(chunk)
+    content = b"".join(chunks_read)
 
     text = ""
     if ext == "pdf":
