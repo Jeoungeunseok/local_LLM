@@ -44,7 +44,10 @@ modeToggle.addEventListener('change', (e) => {
     }
 });
 
-// Add message to UI
+function formatText(text) {
+    return text.replace(/\n/g, '<br>');
+}
+
 function appendMessage(role, content, sources = null) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${role}`;
@@ -56,17 +59,7 @@ function appendMessage(role, content, sources = null) {
     `;
 
     if (sources && sources.length > 0) {
-        html += `
-            <div class="sources-box">
-                <div class="sources-title">참조된 문서 출처</div>
-                ${sources.map(s => `
-                    <div class="source-item">
-                        <strong>${s.filename}</strong> (유사도: ${(s.score).toFixed(2)})<br>
-                        ${s.text.substring(0, 100)}...
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        html += buildSourcesHtml(sources);
     }
 
     html += `</div>`;
@@ -75,9 +68,23 @@ function appendMessage(role, content, sources = null) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+function buildSourcesHtml(sources) {
+    return `
+        <div class="sources-box">
+            <div class="sources-title">참조된 문서 출처</div>
+            ${sources.map(s => `
+                <div class="source-item">
+                    <strong>${s.filename}</strong> (유사도: ${s.score.toFixed(2)})<br>
+                    ${s.text.substring(0, 100)}...
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
 function appendLoading() {
     const msgDiv = document.createElement('div');
-    msgDiv.className = `message assistant loading`;
+    msgDiv.className = 'message assistant loading';
     msgDiv.innerHTML = `
         <div class="avatar">AI</div>
         <div class="bubble">
@@ -89,9 +96,30 @@ function appendLoading() {
     return msgDiv;
 }
 
-function formatText(text) {
-    // Simple line break formatting
-    return text.replace(/\n/g, '<br>');
+// SSE 스트림을 읽어 이벤트 객체를 yield하는 async generator
+async function* readSSE(response) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith('data: ')) continue;
+            try {
+                yield JSON.parse(line.slice(6));
+            } catch {
+                // 파싱 실패한 라인은 무시
+            }
+        }
+    }
 }
 
 // Chat Submit
@@ -100,7 +128,6 @@ chatForm.addEventListener('submit', async (e) => {
     const message = messageInput.value.trim();
     if (!message) return;
 
-    // Reset input
     messageInput.value = '';
     messageInput.style.height = 'auto';
     sendBtn.disabled = true;
@@ -109,32 +136,78 @@ chatForm.addEventListener('submit', async (e) => {
     const loadingDiv = appendLoading();
 
     try {
-        let response;
-        if (isRagMode) {
-            response = await fetch('/rag/ask', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: message })
-            });
-        } else {
-            response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message, history: chatHistory })
-            });
-        }
+        const url = isRagMode ? '/rag/ask' : '/chat';
+        const body = isRagMode
+            ? { question: message }
+            : { message, history: chatHistory };
 
-        const data = await response.json();
-        loadingDiv.remove();
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
 
-        if (response.ok) {
-            appendMessage('assistant', data.answer, data.sources);
-            if (!isRagMode) {
-                chatHistory.push({ role: 'user', content: message });
-                chatHistory.push({ role: 'assistant', content: data.answer });
+        // 스트리밍 버블용 변수
+        let msgDiv = null;
+        let textEl = null;
+        let fullText = '';
+        let sources = null;
+
+        for await (const event of readSSE(response)) {
+            // 오류 이벤트
+            if (event.error) {
+                loadingDiv.remove();
+                appendMessage('assistant', `오류: ${event.error}`);
+                return;
             }
-        } else {
-            appendMessage('assistant', `오류 발생: ${data.detail || '알 수 없는 오류'}`);
+
+            // RAG 관련 문서 없음 (즉시 응답)
+            if (event.done && event.answer !== undefined) {
+                loadingDiv.remove();
+                appendMessage('assistant', event.answer, event.sources || []);
+                return;
+            }
+
+            // RAG sources 먼저 수신
+            if (event.sources) {
+                sources = event.sources;
+            }
+
+            // 토큰 스트리밍
+            if (event.token) {
+                if (!msgDiv) {
+                    loadingDiv.remove();
+                    msgDiv = document.createElement('div');
+                    msgDiv.className = 'message assistant streaming';
+                    msgDiv.innerHTML = `
+                        <div class="avatar">AI</div>
+                        <div class="bubble"><div class="text"></div></div>
+                    `;
+                    chatBox.appendChild(msgDiv);
+                    textEl = msgDiv.querySelector('.text');
+                }
+                fullText += event.token;
+                textEl.innerHTML = formatText(fullText);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            // 스트리밍 완료
+            if (event.done && !event.answer) {
+                if (msgDiv) {
+                    msgDiv.classList.remove('streaming');
+
+                    // RAG 출처 추가
+                    if (sources && sources.length > 0) {
+                        msgDiv.querySelector('.bubble').insertAdjacentHTML('beforeend', buildSourcesHtml(sources));
+                    }
+                }
+
+                // 일반 대화 히스토리 업데이트
+                if (!isRagMode) {
+                    chatHistory.push({ role: 'user', content: message });
+                    chatHistory.push({ role: 'assistant', content: fullText });
+                }
+            }
         }
 
     } catch (err) {
@@ -164,9 +237,7 @@ function preventDefaults(e) {
 });
 
 dropZone.addEventListener('drop', (e) => {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    handleFiles(files);
+    handleFiles(e.dataTransfer.files);
 });
 
 fileInput.addEventListener('change', function () {
@@ -187,7 +258,7 @@ async function handleFiles(files) {
     try {
         const response = await fetch('/documents/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
         });
         const data = await response.json();
 
@@ -204,7 +275,7 @@ async function handleFiles(files) {
     }
 }
 
-// Load and render document list
+// Document list
 async function loadDocumentList() {
     try {
         const response = await fetch('/documents');
@@ -237,7 +308,6 @@ async function loadDocumentList() {
     }
 }
 
-// Delete document
 async function deleteDocument(filename, id) {
     if (!confirm(`'${filename}' 문서를 삭제하시겠습니까?\n\n벡터 DB에서 해당 문서의 모든 데이터가 영구 삭제됩니다.`)) return;
 
@@ -246,7 +316,7 @@ async function deleteDocument(filename, id) {
 
     try {
         const response = await fetch(`/documents/${encodeURIComponent(filename)}`, {
-            method: 'DELETE'
+            method: 'DELETE',
         });
         const data = await response.json();
 
@@ -262,5 +332,4 @@ async function deleteDocument(filename, id) {
     }
 }
 
-// Initial load
 loadDocumentList();

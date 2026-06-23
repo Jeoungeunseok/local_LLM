@@ -451,3 +451,17 @@ button:disabled {
     border-color: #ef4444;
     transform: none;
 }
+
+/* 스트리밍 커서 */
+.message.streaming .text::after {
+    content: '▋';
+    display: inline-block;
+    margin-left: 2px;
+    animation: blink-cursor 0.8s step-end infinite;
+    color: var(--accent);
+}
+
+@keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
