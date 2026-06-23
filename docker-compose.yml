@@ -26,6 +26,12 @@ services:
         condition: service_started
       ollama:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   db:
@@ -51,8 +57,18 @@ services:
     container_name: local-llm-ollama
     ports:
       - "11434:11434"
+    environment:
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
     volumes:
       - ollama_data:/root/.ollama
+      - ./scripts/ollama_init.sh:/ollama_init.sh:ro
+    entrypoint: ["/bin/bash", "/ollama_init.sh"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
   qdrant:
